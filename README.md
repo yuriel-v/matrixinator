@@ -11,7 +11,7 @@ this program is written in... so he's attempting to recreate it in Python.
 
 Future plans include:
 
-> An automatic way of finding .xml and .csv files for use (through boost.filesystem);
-> Getting started on the Python version of this, kindly nicknamed "The Pythrixinator".
+- An automatic way of finding .xml and .csv files for use (through boost.filesystem);
+- Getting started on the Python version of this, kindly nicknamed "The Pythrixinator".
 
-- Leo, 8-Feb-2020
+> Leo, 8-Feb-2020

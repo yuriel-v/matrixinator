@@ -10,7 +10,8 @@ in C++ for him to use in his lab. It doesn't seem like he understand the languag
 this program is written in... so he's attempting to recreate it in Python.
 
 Future plans include:
--> An automatic way of finding .xml and .csv files for use (through boost.filesystem);
--> Getting started on the Python version of this, kindly nicknamed "The Pythrixinator".
 
--Leo, 8-Feb-2020
+> An automatic way of finding .xml and .csv files for use (through boost.filesystem);
+> Getting started on the Python version of this, kindly nicknamed "The Pythrixinator".
+
+- Leo, 8-Feb-2020

@@ -1,14 +1,16 @@
-C++ with Visual Studio Code!
+# The Matrixinator v0.6 (beta)
+The Matrixinator is a small utility I made for my lab assistant Joshu.
 
-Legend: (S) = Suspended
-        (A) = Active
+He once asked me about an application that could help him predict 8 values,
+named BS22, BS15, BS3, BS8, BS27, BS84, BS18 and BS278. These would be
+calculated off a similarity matrix generated from a similarity dendrogram.
 
-This repository contains all my C++ projects developed with VS code.
-It includes, but is not limited to, "blank": my testing project.
+So, being the kind soul I am, I offered my help and thus developed this utility
+in C++ for him to use in his lab. It doesn't seem like he understand the language
+this program is written in... so he's attempting to recreate it in Python.
 
-"blank" is, as i said, my testing project. It's nothing but a single (or multiple) file(s) where
-I test out code sections. Its content will vary wildly.
+Future plans include:
+-> An automatic way of finding .xml and .csv files for use (through boost.filesystem);
+-> Getting started on the Python version of this, kindly nicknamed "The Pythrixinator".
 
-(S) The Matrixinator is an utility I made for my assistant Joshu in his laboratory endeavors.
-Its main purpose is to predict 8 specific values (the octagon) from a similarity tree/matrix in each sample.
-Due to mishaps, it's suspended for the time being.
+-Leo, 8-Feb-2020

@@ -1,4 +1,4 @@
-# The Matrixinator v0.6 (beta)
+# The Matrixinator v1.0 RC1 (beta)
 The Matrixinator is a small utility I made for my lab assistant Joshu.
 
 He once asked me about an application that could help him predict 8 values,
@@ -14,8 +14,8 @@ Future plans include:
 - [x] Improve execution time (52 mins is too long!);
 - [x] Provide basic initialization file support (typing directories is annoying);
 - [x] Migrate to CMake and enable use of Boost libraries;
-- [ ] An automatic way of finding .xml and .csv files for use (through boost.filesystem);
+- [x] An automatic way of finding .xml and .csv files for use (through <filesystem> from standard library);
 - [ ] Getting started on the Python version of this, kindly nicknamed "The Pythrixinator";
 - [ ] A prettier UI in a far, remote future.
 
-> Leo, 8-Feb-2020
+> Leo, 12-Feb-2020

@@ -3,6 +3,36 @@ matrixinator/build/
 
 matrixinator/mtx.code-workspace
 
-matrixinator/.vscode/tasks.json
+matrixinator/.vscode/
+
+matrixinator/.vs/
+
+matrixinator/Debug/obj/
+
+matrixinator/Release/obj/
 
 blank/
+
+template/
+
+mtx/
+
+mtx2/
+
+matrixinator/Debug/mtx.ini
+
+matrixinator/matrixinator.sln
+
+matrixinator/matrixinator.vcxproj
+
+matrixinator/matrixinator.vcxproj.filters
+
+matrixinator/matrixinator.vcxproj.user
+
+*.iobj
+
+*.ipdb
+
+*.pdb
+
+*.ilk

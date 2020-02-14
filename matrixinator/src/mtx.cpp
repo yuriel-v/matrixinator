@@ -2,337 +2,34 @@
  * method implementation file: the matrixinator
  * for more details, check the header file.
  * 
- * -Leo, 1-Feb-2020
+ * -Leo, 12-Feb-2020
  * 
 */
 
+#include "utils.hpp"
+#include "mtx.hpp"
+
+#include <algorithm>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <sstream>
 #include <cstdio>
 #include <iostream>
 #include <cstddef>
-#include <set>
-#include "utils.hpp"
-#include "mtx.hpp"
+#include <cmath>
+#include <string>
+//#include <set>
+//#include <vector>
+//#include <filesystem>
 
-// =============================== fmtx ===============================
+// ========== I/O methods from Tree and SSheet ==========
+// all three of these will read or write a single line between memory and file, both ways.
+// iteration is the way of the future here.
 
-void fmtx::postInit(mtx* matrix, std::vector<tree>& acacia, int nodes, std::vector<SSheet>& SS)
-{
-    printf("- Deorphanizing tree... ");
-    //fill out the memory address of each node's parent.
-    for (int i = 1; i <= nodes; ++i) {
-        int id = acacia[i].parentID;
-        acacia[i].parentAddress = &(acacia[id]);
-    }
-    printf("done.\n");
-    
-    printf("- Branching tree... ");
-    //insert node #i's ID into its parent's list.
-    for (int i = 1; i <= nodes; ++i)
-        if (acacia[i].isSample)
-            bulldozer(&acacia[i]);
-    printf("done.\n");
-
-    //associate samples with nodes
-    printf("- Performing sample-node association... ");
-    int sCount = 0;
-    for (int i = 1; i <= nodes; ++i) {
-        if (acacia[i].isSample) {
-            SS[sCount].node = i;
-            ++sCount;
-        }
-    }
-    printf("done.\n");
-
-    //generate matrix
-    printf("- Generating similarity matrix - this might take a while.\n");
-    for (int row = 0; row < matrix->numSamples; ++row) {
-        for (int column = 0; column < matrix->numSamples; ++column) {
-            
-            if (row == column)
-                matrix->data[row][column] = 100;
-            
-            else if (row > column)
-                matrix->data[row][column] = matrix->data[column][row];
-                //similarity matrices are mirrored
-
-            else {
-                int colid = SS[column].node, rowid = SS[row].node;
-                matrix->data[row][column] = bullSim(&acacia[rowid], colid);
-            }
-        }
-        printf("\r-> Row %d done.", row);
-    }
-    printf("\n- Similarity matrix generated.\n=====\n");
-}
-
-void fmtx::treeGrow(mtx* matrix, std::vector<tree>& acacia, int nodes)
-{
-    acacia[0].ID = 0;
-    acacia[0].parentID = 0;
-    acacia[0].similarity = 0;
-    acacia[0].isSample = false;
-    acacia[0].parentAddress = &acacia[0];
-    for (int i = 1; i <= nodes; ++i)
-            acacia[i].readSelf(matrix->TreeFile, i-1);
-    
-    for (int i = 1; i <= nodes; ++i)
-        acacia[0].list.insert(i);
-}
-
-void fmtx::matrixSweep(mtx* matrix, std::vector<SSheet> &SS) {
-    using namespace std;
-    for (int foreign = 0; foreign < matrix->numSamples; ++foreign) {
-        if (matrix->isUS(foreign)) continue; //do not process US samples!
-
-        int caseCount = 0; vector<int> matches;
-        for (vector<int>::const_iterator it = matrix->usa.begin(); it != matrix->usa.end(); ++it)
-            if (matrix->data[foreign][*it] >= 80) {
-                ++caseCount;
-                matches.push_back(*it);
-            }
-        
-        switch (caseCount) {
-        //case 0, do nothing 
-        case 1:
-            for (int iteration = 0; iteration < 8; ++iteration)
-                SS[foreign].octagon[iteration] = SS[matches[0]].octagon[iteration];
-        break;
-        default:
-            //multiply value by the similarity of that particular usa sample to the foreign sample
-            double tempOct[matches.size()][8];
-            int i = 0;
-            for (vector<int>::iterator it = matches.begin(); it != matches.end(); ++it) {
-                double curSim = matrix->data[foreign][*it];
-                for (int j = 0; j < 8; ++j)   //octagon value #j
-                    tempOct[i][j] = SS[*it].octagon[j] * curSim;
-                ++i;
-            }
-
-            //add up all the similarities for every usa sample matched
-            double tempSim = 0;
-            for (vector<int>::iterator it = matches.begin(); it != matches.end(); ++it)
-                tempSim += matrix->data[foreign][*it];
-            
-            //add up all of the octagon values for every usa sample
-            double foreignOctagon[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-            for (int i = 0; i < (int)matches.size(); ++i)
-                for (int j = 0; j < 8; ++j)
-                    foreignOctagon[j] += tempOct[i][j];
-            
-            //divide by the total similarity + print to octagon for foreign sample
-            for (int i = 0; i < 8; ++i) {
-                foreignOctagon[i] /= tempSim;
-                SS[foreign].octagon[i] = foreignOctagon[i];
-            }
-        }
-    }
-}
-void fmtx::nline() {printf("\n==================================================\n");}
-
-//compare node's similarity to compID
-double fmtx::bullSim(tree* node, int compID) {
-    if (!node->isSample) return 0;
-
-    tree* parent = node->parentAddress;
-
-    while (parent->ID >= 1) {
-        //if the parent's similarity is below 80%, it's no longer a possible match
-        if (node->similarity < 80)
-            return 0;
-
-        //sweep parent node's list for the ID being compared
-        for (std::set<int>::const_iterator it = (parent->list).begin(); it != (parent->list).end(); ++it)
-            if (*it == compID)
-                return parent->similarity;
-        //if parent doesn't contain compNode, node becomes parent, parent becomes grandparent.
-        node = parent;
-        parent = parent->parentAddress;
-    }
-    //if all else fails, return the similarity of node 1
-    return node->similarity;
-}
-
-//carry all the node IDs from sample to root, adding them to the nodes' lists along the way
-void fmtx::bulldozer(tree *node)
-{
-    if (!node->isSample) return;
-
-    std::vector<int> changeList;
-    int parID = (node->parentAddress)->ID;
-
-    while (parID >= 1) {
-        changeList.push_back(node->ID);
-        node = node->parentAddress;
-        parID = (node->parentAddress)->ID;
-
-        //add the change list to the parent's list
-        for (std::vector<int>::const_iterator it = changeList.begin(); it != changeList.end(); ++it)
-            (node->list).insert(*it);
-    }
-    //we're at node 1 at this point, parent ID 0
-    for (std::vector<int>::const_iterator it = changeList.begin(); it != changeList.end(); ++it)
-        (node->list).insert(*it);
-}
-
-//fetch the number of nodes within a .xml file
-int fmtx::nodeNumber(std::string path)
-{
-    std::fstream file (path, std::fstream::in);
-    if (!file.is_open()) return -1;
-    file.seekg(-1, std::ios_base::end);
-
-    int count = 0;
-    while (count < 3) {
-        file.seekg(-1, std::ios_base::cur);
-        if (file.peek() == '=') ++count;
-    }
-    file.ignore(5, '\"');
-    std::string buf; getline(file, buf);
-    std::stringstream(buf) >> count; 
-    return count;
-}
-
-void fmtx::manualLoad(std::string* TreeFile, std::string* SSfile)
-{
-    bool TreeLoaded = false, SSloaded = false;
-    while (!TreeLoaded || !SSloaded) {
-        printf("Warning: Use forward slashes (/) or double back slashes (\\\\) for file path!\n"
-            "Additionally, at either prompt, type 'exit' (case-sensitive) to terminate the program.\n-\n");
-        
-        if (!TreeLoaded) {
-            printf("Please input the Dendrogram (tree) file's location.\n>> ");
-            getline(std::cin, *TreeFile);
-            if (TreeFile->compare("exit") == 0) { printf("Understood. Exiting program."); sysexit(0); }
-        }
-
-        if (!SSloaded) {
-            printf("Please input the Spreadsheet (csv) file's location.\n>> ");
-            getline(std::cin, *SSfile);
-            if (SSfile->compare("exit") == 0) { printf("Understood. Exiting program."); sysexit(0); }
-        }
-        printf("\nLoading files to memory... ");
-        TreeLoaded = isLoaded(*TreeFile);
-        SSloaded = isLoaded(*SSfile);
-
-        if (TreeLoaded && SSloaded) printf("done.\n");
-        else {
-            printf("error loading the following files. Try again.\n-> If you wish to quit the program, simply type 'exit')\n-\n");
-
-            printf("Dendrogram (tree) file: ");
-            (TreeLoaded)? printf("loaded.\n") : printf("failed.\n");
-
-            printf("Spreadsheet file: ");
-            (SSloaded)? printf("loaded.\n-\n") : printf("failed.\n-\n");
-        }
-    }
-
-    //.ini stuff
-    printf("Would you like to save the current files' paths into an initialization file? (Y/N)\n");
-    if (YN()) {
-        printf("Understood. Saving current file paths to \"mtx.ini\", which will be placed in the\n"
-               "same folder as the executable.\n");
-
-        std::size_t SSI = SSfile->find_last_of("/\\"), TreeI = TreeFile->find_last_of("/\\");
-
-        std::fstream ini ("mtx.ini", std::fstream::out | std::fstream::trunc);
-        ini << "[Matrixinator Configuration File]\n";
-        ini << "SpreadSheetPath=" << SSfile->substr(0, SSI+1) << '\n';
-        ini << "TrianglePath=" << TreeFile->substr(0, TreeI+1) << '\n';
-    }
-    else
-        printf("Understood. Resuming program execution.\n");
-}
-
-bool fmtx::isLoaded(std::string path) {
-    bool ret;
-    std::fstream file (path, std::fstream::in);
-    ret = file.is_open();
-    file.close();
-    return ret;
-}
-
-//fetch the files, reading them is done on other methods.
-void fmtx::firstRun(std::string* TreeFile, std::string* SSfile)
-{
-    using namespace std;
-    bool TreeLoaded = false, SSloaded = false;
-    fstream ini ("mtx.ini", fstream::in);
-
-    if (ini.is_open()) {
-        printf("Initialization file found. Do you wish to load?\n"
-                "You will be asked for input files' folders otherwise. (Y/N)\n");
-        if (YN()) {
-            printf("Understood. Loading configuration file... ");
-
-            ini.ignore(256, '=');
-            std::getline(ini, *SSfile, '\n');
-            ini.ignore(256, '=');
-            std::getline(ini, *TreeFile, '\n');
-
-            printf("done.\n\n");
-
-            while (!TreeLoaded || !SSloaded) {
-                printf("To quit the program, type 'exit' (case-sensitive) at any prompt.\n-\n");
-                string TreeName, SSname;
-                TreeName.clear(); SSname.clear();
-
-                if (!TreeLoaded) {
-                    printf("Please input the Dendrogram (tree) file's name: ");
-                    getline(cin, TreeName);
-                    if (TreeName.compare("exit") == 0) { printf("Understood. Exiting program."); sysexit(0); }
-                }
-
-                if (!SSloaded) {
-                    printf("Please input the Spreadsheet (csv) file's name: ");
-                    getline(cin, SSname);
-                    if (SSname.compare("exit") == 0) { printf("Understood. Exiting program."); sysexit(0); }
-                }
-
-                printf("\nLoading files to memory... ");
-                TreeLoaded = isLoaded((*TreeFile) + TreeName);
-                SSloaded = isLoaded((*SSfile) + SSname);
-
-                if (TreeLoaded && SSloaded) {
-                    *TreeFile += TreeName;
-                    *SSfile += SSname;
-                    cout<<"done."<<endl;
-                }
-                else {
-                    printf("error loading the following files. Try again.\n-> If you wish to quit the program, simply type 'exit')\n-\n");
-
-                    printf("Dendrogram (tree) file: ");
-                    (TreeLoaded)? printf("loaded.\n") : printf("failed.\n");
-
-                    printf("Spreadsheet file: ");
-                    (SSloaded)? printf("loaded.\n-\n") : printf("failed.\n-\n");
-
-                    printf("\n=====\n");
-                }
-            } //end-while
-        } //end-if (Y/N)
-
-        else {
-            printf("Understood. Commencing manual load.\n-\n");
-            ini.close(); manualLoad(TreeFile, SSfile);
-        }
-    }
-
-    else manualLoad(TreeFile, SSfile);
-}
-
-// =============================== tree ===============================
-
-//read one line to memory (iterable)
-void tree::readSelf(std::string filePath, int line)
+void Tree::readSelf(std::string filePath, int line)
 {
     std::fstream xml (filePath, std::fstream::in);
     for (int i = 0; i < line; ++i)
         xml.ignore(2048, '/');
-    xml.precision(3);
     std::string buffer;
 
     for (int i = 0; i < 3; ++i) {
@@ -353,122 +50,52 @@ void tree::readSelf(std::string filePath, int line)
     xml.close();
 }
 
-// =============================== mtx ===============================
-
-//check if a sample is foreign
-bool mtx::isUS(int index) {
-    for (std::vector<int>::const_iterator it = usa.begin(); it != usa.end(); ++it)
-        if (*it == index) return true;
-    return false;
-}
-
-//identify the USA samples within a file and count the samples in one go
-bool mtx::usaRead(void) {
-    std::fstream fs (SSinput, std::fstream::in);
-
-    if (!fs.is_open()) return false;
-    else {
-        fs.ignore(INT_MAX, '\n'); //ignore header
-        int cnt = 0; //position counter
-        std::string in;
-
-        while (!fs.eof()) {
-            fs.ignore(64, ','); //ignore key
-            getline(fs, in, ',');
-
-            if (in.compare("US") == 0 || in.compare("USA") == 0)
-                usa.insert(usa.end(), cnt);
-            ++cnt;
-
-            fs.ignore(INT_MAX, '\n');
-            ++numSamples;
-        }
-
-        fs.close();
-        return true;
-    }
-}
-
-//count the total amount of samples within a file
-void mtx::countSamples(std::string path)
-{
-    std::fstream fs (path, std::fstream::in);
-    fs.seekg(1, std::ios_base::beg);
-    fs.ignore(INT_MAX, '\n');
-    std::string buff;
-    while (!fs.eof()) {
-        buff.clear();
-        std::getline(fs, buff, ',');
-        if (buff.size() > 5)
-            ++numSamples;
-        fs.ignore(INT_MAX, '\n');
-    }
-    fs.close();
-}
-
-void mtx::outputOptions(void) {
-    std::cout<<"\nWould you like to overwrite the original spreadsheet with the new values? (Y/N)\n";
-    overwrite = YN();
-
-    if (overwrite) {
-        SSoutput = SSinput;
-        printf("Understood. Overwriting contents.\nPress enter to continue.\n");
-        getchar(); return;
-    }
-    else {
-        SSoutput = "output.csv";
-        std::cout<<"Understood. The new output file will be titled \"output.csv\" and placed in the same folder as the executable.\n"
-            <<"Please note, if there is already another \"output.csv\" file in this folder, it'll be overwritten.\nPress enter to continue."<< std::endl;
-        getchar(); return;
-    }
-}
-
-// =============================== SSheet ===============================
+// SSheet
 
 void SSheet::readSelf(std::string filePath, int line) {
-    std::fstream sprSheet (filePath, std::fstream::in);
-    for (int i = 0; i <= line; ++i)
-        sprSheet.ignore(2048, '\n');
+    std::wfstream sprSheet (filePath, std::wfstream::in);
 
+    for (int i = 0; i <= line; ++i) {
+        sprSheet.ignore(2048, '\n');
+    }
     sprSheet.precision(14);
 
-    std::getline(sprSheet, Key, ',');
-    std::getline(sprSheet, Location, ',');
-    std::getline(sprSheet, CollectionDate, ',');
-    std::getline(sprSheet, Company, ',');
-    std::getline(sprSheet, FSGID, ',');
-    std::getline(sprSheet, Farm, ',');
-    std::getline(sprSheet, Age_days, ',');
-    std::getline(sprSheet, SampleOrigin, ',');
-    std::getline(sprSheet, SampleType, ',');
-    std::getline(sprSheet, VMP, ',');
-    std::getline(sprSheet, ibeA, ',');
-    std::getline(sprSheet, traT, ',');
-    std::getline(sprSheet, iutA, ',');
-    std::getline(sprSheet, ompT, ',');
-    std::getline(sprSheet, sitA, ',');
-    std::getline(sprSheet, irp2, ',');
-    std::getline(sprSheet, cvaC, ',');
-    std::getline(sprSheet, tsh, ',');
-    std::getline(sprSheet, iucC, ',');
-    std::getline(sprSheet, iss, ',');
+    //I HATE WIDE STRINGS
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Key, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Location, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, CollectionDate, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Company, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, FSGID, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Farm, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Age_days, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, SampleOrigin, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, SampleType, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, VMP, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, ibeA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, traT, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iutA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, ompT, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, sitA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, irp2, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, cvaC, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, tsh, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iucC, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iss, ',');
 
-    //get octagon values from US samples only
-    if (Location == "US" || Location == "USA") {
-        std::string buffer;
-        for (int j = 0; j < 8; ++j) {
-            std::getline(sprSheet, buffer, ',');
-            std::stringstream(buffer) >> octagon[j];
-        }
+    std::wstring buffer;
+    for (int j = 0; j < 8; ++j) {
+        std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, buffer, ',');
+        std::wstringstream(buffer) >> octagon[j];
     }
     sprSheet.close();
+
 }
 
-void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
-    std::fstream output;
+void SSheet::writeSelf(std::string filePath, bool truncate, bool title, bool dS) {
+    std::wfstream output;
     (truncate)?
-        output.open(filePath, std::fstream::out | std::fstream::trunc):
-        output.open(filePath, std::fstream::out | std::fstream::app);
+        output.open(filePath, std::wfstream::out | std::wfstream::trunc):
+        output.open(filePath, std::wfstream::out | std::wfstream::app);
     output.precision(14);
 
     if (!output.is_open()) {
@@ -476,8 +103,13 @@ void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
         return;
     }
 
-    if (title) output<<"Key,Location,CollectionDate,Company,FSGID,Farm,Age_days,SampleOrigin,SampleType,VMP,ibeA,traT,iutA,ompT,sitA,irp2,cvaC,tsh,iucC,iss"
-                  <<",BS22,BS15,BS3,BS8,BS27,BS84,BS18,BS278\n";
+    if (title) {
+        output << "Key,Location,CollectionDate,Company,FSGID,Farm,Age_days,SampleOrigin,SampleType,VMP,ibeA,traT,iutA,ompT,sitA,irp2,cvaC,tsh,iucC,iss"
+            << ",BS22,BS15,BS3,BS8,BS27,BS84,BS18,BS278,";
+        if (dS)
+            output << "USAMatches:Similarity,\n";
+        else output << "\n";
+    }
     else {
         output << Key <<","
                << Location <<","
@@ -500,10 +132,572 @@ void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
                << iucC <<","
                << iss;
 
-            for (int j = 0; j < 8; ++j)
-                output << "," << octagon[j];
 
-        output << ",\n";
+        for (int j = 0; j < 8; ++j) {
+            (isnan(octagon[j]) || octagon[j] == -1) ?
+                output << "," :
+                output << "," << octagon[j];
+        }
+        if (dS) {
+            output << ",";
+            for (auto& pr : usaMatches) {
+                output << pr.first << ":" << pr.second << " ";
+            }
+        }
+        if (!dS) output << ",";
+        output << '\n';
     }
     output.close();
+}
+
+// ========== Statistical and Functional Matrixinator's methods ==========
+
+// public:
+
+// do i really need to explain this?
+void Fmtx::nline() { std::cout<<"\n==================================================\n"; }
+
+// first run function, interacts with user to determine input files and output options
+void Fmtx::UI()
+{
+    using namespace std;
+
+    fstream ini("mtx.ini", fstream::in);
+    if (ini.is_open()) {
+        (pottyMouth) ?
+            cout << "hey cunt, there's an ini file here. should we load folders from it? (Y/N)\n" :
+            cout << "Initialization file detected. Would you like to load folders from it? (Y/N)\n";
+        if (YN()) {
+            (pottyMouth) ?
+                cout << "sure, let's see then... " :
+                cout << "Understood. Loading folders... ";
+
+            ini.ignore(500, '=');
+            getline(ini, inputFolder);
+
+            cout << "done." << endl;
+
+            iniPowered = true;
+            readFiles(false);
+        }
+        else {
+            (pottyMouth) ?
+                cout << "you're a cunt, giving me more work to do. let's do it the hard way then.\n" :
+                cout << "Understood. Commencing manual load.\n";
+            readFiles(true);
+        }
+        ini.close();
+    }
+    else readFiles(true);
+}
+
+// overwrite?
+void Fmtx::outputOptions()
+{
+    using namespace std;
+    if (!iniPowered) {
+        (pottyMouth) ?
+            cout << "you wanna save some time and put this folder in an ini file? (Y/N)" << endl :
+            cout << "Would you like to save the current folder path to an initialization file? (Y/N)" << endl;
+
+        if (YN()) {
+            (pottyMouth) ?
+                cout << "wise choice. saved on the same folder as the program, named \"mtx.ini\".\n\n" :
+                cout << "Understood. A file named \"mtx.ini\" has been created on the same folder as this executable.\n\n";
+            fstream ini("mtx.ini", fstream::out | fstream::trunc);
+            ini << "[Matrixinator initialization file]\n"
+                << "FilePath=" << inputFolder << endl;
+            ini.close();
+        }
+        else {
+            (pottyMouth) ?
+                cout << "well, fuck then. let's resume.\n\n" :
+                cout << "Understood. No changes were made.\n\n";
+        }
+    }
+
+    (pottyMouth) ?
+        cout << "wanna overwrite the original spreadsheet? (Y/N)\n" :
+        cout << "Would you like to overwrite the original metadata spreadsheet? (Y/N)\n";
+
+    if (YN()) {
+        (pottyMouth) ?
+            cout << "fine, let's overwrite this shit, nigga.\n"
+                 << "press enter to get started.\n" :
+            cout << "Understood. The current spreadsheet file will be overwritten with processed content.\n"
+                 << "Press enter to begin execution.\n";
+        outputSS = inputFolder + inputSS; cin.get();
+    }
+
+    else {
+        (pottyMouth) ?
+            cout << "ok but nigga, i'ma make a file named \"output.csv\" on the same folder as the original.\n"
+                 << "if i see another file there with the same name i'ma SHANK A BITCH and toss it out the window.\n"
+                 << "press enter to get started.\n" :
+            cout << "Understood. The output file will be named \"output.csv\", in the same folder as the original spreadsheet.\n"
+                 << "WARNING: If there is already a file with the same name in that folder, it will be OVERWRITTEN!\n"
+                 << "Press enter to begin execution.\n";
+        outputSS = inputFolder + "output.csv"; cin.get();
+    }
+    return;
+}
+
+// resizing tree/ssheet vectors so they can fit the right amount of data
+void Fmtx::readSelves()
+{
+    // at this point, paths have been tested and proven so we can do this
+    using namespace std;
+    inputSS = inputFolder + inputSS;
+    inputTree = inputFolder + inputTree;
+
+    // identify US samples + sample amount
+    fstream file(inputSS, fstream::in);
+    file.ignore(INT_MAX, '\n');
+    string in; int cnt = 0;
+
+    while (!file.eof()) {
+        in.clear();
+        file.ignore(100, ','); // key
+        getline(file, in, ',');
+
+        if (in.length() < 2) break;
+
+        if (in == "US" || in == "USA")
+            USAlist.push_back(cnt);
+
+        file.ignore(INT_MAX, '\n');
+        ++cnt;
+        ++numSamples;
+    }
+    file.close();
+
+    // count number of nodes in .xml
+    file.open(inputTree, fstream::in | fstream::ate);
+    cnt = 0;
+
+    while (cnt < 3) {
+        file.seekg(-1, ios_base::cur);
+        if (file.peek() == '=') ++cnt;
+    }
+    file.ignore(5, '\"');
+    getline(file, in, '\"');
+    stringstream(in) >> numNodes;
+    file.close();
+
+    // resize vectors - better ++ and -- than have intellisense on my ass about it. perfectionism.
+    ++numNodes;
+    SS.resize(numSamples);
+    acacia.resize(numNodes);
+    --numNodes;
+
+    // read dendrogram
+    (pottyMouth) ?
+        cout << "lemme read this shitty dendrogram... " :
+        cout << "Loading dendrogram to memory... ";
+    acacia[0].ID = 0;
+    acacia[0].parentID = 0;
+    acacia[0].similarity = 0;
+    acacia[0].isSample = false;
+    for (int i = 1; i <= numNodes; ++i)
+        acacia[0].list.insert(i);
+
+    for (int i = 1; i <= numNodes; ++i)
+        acacia[i].readSelf(inputTree, i - 1);
+    cout << "done.\n";
+
+    // read metadata
+    (pottyMouth) ?
+        cout << "ok, now for the spreadsheet... " :
+        cout << "Loading metadata to memory... ";
+    for (int i = 0; i < numSamples; ++i)
+        SS[i].readSelf(inputSS, i);
+    cout << "done.\n";
+
+}
+
+void Fmtx::postInit()
+{
+    using namespace std;
+    (pottyMouth) ?
+        cout << "--\nok, let's begin post-init, nigga.\n" :
+        cout << "--\nCommencing post-initialization.\n";
+
+    // branching
+    (pottyMouth) ?
+        cout << "- pissing on tree... " :
+        cout << "- Branching tree... ";
+    for (int i = 1; i <= numNodes; ++i)
+        if (acacia[i].isSample)
+            bulldozer(i);
+    (pottyMouth) ?
+        cout << "feels gud.\n" :
+        cout << "done.\n";
+
+    // sample-node association
+    (pottyMouth) ?
+        cout << "- connecting the dots... " :
+        cout << "- Performing sample-node association... ";
+    int sCount = 0;
+    for (int i = 1; i <= numNodes; ++i) {
+        if (acacia[i].isSample) {
+            SS[sCount].node = i;
+            ++sCount;
+        }
+    }
+    (pottyMouth) ?
+        cout << "i'm smurt!\n" :
+        cout << "done.\n";
+}
+
+void Fmtx::sweep()
+{
+    using namespace std;
+    (pottyMouth) ?
+        cout << "--\nok, time for the hard shit now. let's get into the octagon.\n" :
+        cout << "--\nSweeping samples.\n";
+    cout << "-> ";
+
+    for (int foreign = 0; foreign < numSamples; ++foreign) {
+        
+        if (isUS(foreign)) {
+            cout << "\r-> " << foreign + 1 << " sample(s) processed.";
+            continue;
+        }
+
+        int caseCount = 0; vector<int> matches;
+        for (vector<int>::const_iterator it = USAlist.begin(); it != USAlist.end(); ++it) {
+            double sim = bullSim(SS[foreign].node, SS[*it].node);
+            if (sim >= 80) {
+                ++caseCount;
+                matches.push_back(*it);
+                if (detailedSweep)
+                    SS[foreign].usaMatches.push_back(make_pair(SS[*it].Key, sim));
+            }
+        }
+
+        switch (caseCount) {
+        case 0:
+            if (detailedSweep) {
+                SS[foreign].usaMatches.push_back(make_pair(to_wstring(0), 0));
+            }
+            for (auto& val : SS[foreign].octagon)
+                val = -1;
+            break;
+        case 1:
+            for (int i = 0; i < 8; ++i)
+                SS[foreign].octagon[i] = SS[matches[0]].octagon[i];
+            break;
+        default:
+
+            // multiply value by the similarity of that particular usa sample to the foreign sample
+            vector<vector<double>> tempOct(matches.size()); // msvc is a BITCH
+            for (int i = 0; i < matches.size(); i++)
+                tempOct[i].resize(8);
+
+            int i = 0;
+            for (vector<int>::iterator it = matches.begin(); it != matches.end(); ++it) {
+                double curSim = bullSim(SS[foreign].node, SS[*it].node);
+                for (int j = 0; j < 8; ++j)   // octagon value #j
+                    tempOct[i][j] = SS[*it].octagon[j] * curSim;
+                ++i;
+            }
+
+            // add up all the similarities for every usa sample matched
+            double tempSim = 0;
+            for (vector<int>::iterator it = matches.begin(); it != matches.end(); ++it)
+                tempSim += bullSim(SS[foreign].node, SS[*it].node);
+
+            // add up all of the octagon values for every usa sample
+            double foreignOctagon[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+            for (int i = 0; i < (int)matches.size(); ++i)
+                for (int j = 0; j < 8; ++j)
+                    foreignOctagon[j] += tempOct[i][j];
+
+            // divide by the total similarity + print to octagon for foreign sample
+            for (int i = 0; i < 8; ++i) {
+                foreignOctagon[i] /= tempSim;
+                SS[foreign].octagon[i] = foreignOctagon[i];
+            }
+        }
+
+        cout << "\r-> " << foreign + 1 << " sample(s) processed.";
+    }
+    cout << '\n';
+
+}
+
+void Fmtx::output()
+{
+    (pottyMouth) ?
+        std::cout << "time to wrap this shit up, at last... " :
+        std::cout << "Writing output spreadsheet... ";
+    SS[0].writeSelf(outputSS, true, true, detailedSweep); // title first, content later
+    for (int i = 0; i < numSamples; ++i)
+        SS[i].writeSelf(outputSS, false, false, detailedSweep);
+    std::cout << "done.\n=====\n";
+}
+
+void Fmtx::prelude() {
+    using namespace std;
+    string* input = new string;
+
+    cout << "The Matrixinator v0.7"; nline();
+    cout << "Hello and welcome to the matrixinator! Do you have something to tell me?\n>> ";
+    getline(cin, *input);
+    if (*input == "fuck you") {
+        cout << "well fuck you too then, faggot ass cunt. time to stop playing nice.";
+        pottyMouth = true;
+    }
+    else if (*input == "detailed") {
+        cout << "Understood. Detailed sweeping mode enabled.\n"
+            << "The USA sample matches will appear on the last row of each sample as key:similarity.";
+        detailedSweep = true;
+    }
+    else if (*input == "detailed, motherfucker") {
+        cout << "what the fuck did you motherfuckin' call me, motherfucker?\n"
+            << "i'll be motherfuckin' detailed in this motherfuckin' program alright, but not before i\n"
+            << "motherfuckin' call you a bitch ass faggot motherfucker yourself, motherfucker!";
+        detailedSweep = true;
+        pottyMouth = true;
+    }
+    else
+        cout << "Sorry, I didn't quite get that. Well, moving on with the program!";
+    delete input;
+}
+
+// private:
+
+// check if a sample is foreign
+bool Fmtx::isUS(int index) {
+    for (std::vector<int>::const_iterator it = USAlist.begin(); it != USAlist.end(); ++it)
+        if (*it == index) return true;
+    return false;
+}
+
+// carry all the node IDs from sample to root, adding them to the nodes' lists along the way
+void Fmtx::bulldozer(int node)
+{
+    if (!acacia[node].isSample) return;
+
+    std::vector<int> changeList; changeList.clear();
+    int parent = acacia[node].parentID;
+
+    while (acacia[parent].ID >= 1) {
+        changeList.push_back(acacia[node].ID);
+        node = parent;
+        parent = acacia[parent].parentID;
+
+        // add the change list to the parent's list
+        for (auto& it : changeList)
+            acacia[node].list.insert(it);
+    }
+    // we're at node 1 at this point, parent ID 0
+    for (auto& it : changeList)
+        acacia[node].list.insert(it);
+}
+
+// compare node's similarity to compID
+double Fmtx::bullSim(int node, int compID) {
+    if (!acacia[node].isSample) return 0;
+
+    int parent = acacia[node].parentID;
+
+    while (acacia[parent].ID >= 1) {
+        // the almighty time saver
+        if (acacia[node].similarity < 80)
+            return 0;
+
+        for (auto& it : acacia[parent].list) {
+            if (it == compID)
+                return acacia[parent].similarity;
+        }
+
+        node = parent;
+        parent = acacia[parent].parentID;
+    }
+    // deprecated fail-safe
+    return acacia[node].similarity;
+}
+
+// simple prompt for asking a path
+void Fmtx::promptPath()
+{
+    (pottyMouth) ?
+        std::cout << "--\ngimme a folder to read from, faggot.\n>> " :
+        std::cout << "--\nPlease input a folder to read from.\n>> ";
+    std::getline(std::cin, inputFolder);
+}
+
+// return file names or extensions
+std::string Fmtx::fileName(std::string str, bool extension)
+{
+    std::size_t found;
+    found = (extension) ?
+        str.find_last_of('.') :
+        str.find_last_of("/\\");
+
+    str = str.substr(found + 1);
+
+    if (extension) std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+    return str;
+}
+
+// convert a path object to string
+std::string Fmtx::path2string(std::filesystem::directory_entry p)
+{
+    std::filesystem::path buffer = p.path();
+    return buffer.string();
+}
+
+// check if a file exists
+bool Fmtx::isLoaded(std::string path) {
+    bool ret;
+    std::fstream file(path, std::fstream::in);
+    ret = file.is_open();
+    file.close();
+    return ret;
+}
+
+// after fetching path off first run, cycle through that folder and let the user pick which files to load to memory
+void Fmtx::readFiles(bool manual)
+{
+    namespace fs = std::filesystem;
+    using namespace std;
+
+    string file;
+    bool loaded = false, firstTry = true, xmlFound = false, csvFound = false;
+    vector<string> csvFiles, xmlFiles;
+
+    while (!loaded) {
+        if (!(firstTry && !manual))
+            promptPath();
+        csvFiles.clear(); xmlFiles.clear();
+        try {
+            // populate xml/csv lists
+            for (auto& p : fs::directory_iterator(inputFolder)) {
+                file = path2string(p);
+                if (fileName(file, true) == "XML") {
+                    xmlFiles.push_back(fileName(file, false));
+                    xmlFound = true;
+                }
+                else if (fileName(file, true) == "CSV") {
+                    csvFiles.push_back(fileName(file, false));
+                    csvFound = true;
+                }
+            }
+        }
+        catch (...) {
+            (pottyMouth) ?
+                cout << "you fucking retard, i can't access that folder, if it even exists!\n" :
+                cout << "Exception thrown: the folder provided doesn't exist or is otherwise inaccessible!\n";
+            firstTry = false; continue;
+        }
+
+        if (!(xmlFound && csvFound)) {
+            if (!xmlFound && csvFound) {
+                (pottyMouth) ?
+                    cout << "this shithole has no .xml files, cunt! try again.\n" :
+                    cout << "The specified folder does not contain any .xml files! Try again.\n";
+            }
+            else if (xmlFound && !csvFound) {
+                (pottyMouth) ?
+                    cout << "this shithole has no .csv files, cunt! try again.\n" :
+                    cout << "The specified folder does not contain any .csv files! Try again.\n";
+            }
+            else {
+                (pottyMouth) ?
+                    cout << "this shithole ain't got nothing relevant here, you moron! try a folder with .xml and .csv files.\n" :
+                    cout << "The specified folder does not contain any .csv or .xml files! Try again.\n";
+            }
+
+            firstTry = false; continue;
+        }
+        else {
+            int i = 0;
+            (pottyMouth) ?
+                cout << "\nhere's what i found.\n"
+                     << "format: [index] filename.extension\n" :
+                cout << "\nDisplaying a list of all available files found.\n"
+                     << "Format: [index] filename.extension\n";
+
+            cout << "\n.csv files:\n";
+            for (vector<string>::const_iterator it = (csvFiles).begin(); it != csvFiles.end(); ++it) {
+                cout << "- [" << i << "] " << *it << '\n';
+                ++i;
+            }
+
+            i = 0;
+            cout << "\n.xml files:\n";
+            for (vector<string>::const_iterator it = (xmlFiles).begin(); it != xmlFiles.end(); ++it) {
+                cout << "- [" << i << "] " << *it << '\n';
+                ++i;
+            }
+
+            (pottyMouth) ?
+                cout << "\nthis folder got what you want? (Y/N)\n" :
+                cout << "\nDoes this folder contain the files you're looking for? (Y/N)\n";
+            if (YN()) {
+                bool xmlLoaded = false, csvLoaded = false;
+
+                // quick check for no fuckups on file structure
+                if (inputFolder.at(inputFolder.length() - 1) != '/' || inputFolder.at(inputFolder.length() - 1) != '\\')
+                    inputFolder += '/';
+
+                while (!(xmlLoaded && csvLoaded)) {
+                    unsigned xmlIndex = 0, csvIndex = 0;
+                    
+                    inputTree.clear(); inputSS.clear();
+
+                    (pottyMouth) ?
+                        cout << "where the metadata (.csv) at?\n>> " :
+                        cout << "Please type the index of the metadata spreadsheet (.csv) file.\n>> ";
+                    cin >> csvIndex; inflush();
+
+                    (pottyMouth) ?
+                        cout << "where the dendrogram (.xml) at?\n>> " :
+                        cout << "Please type the index of the dendrogram tree (.xml) file.\n>> ";
+                    cin >> xmlIndex; inflush();
+
+                    (pottyMouth) ?
+                        cout << "ok let's see then... " :
+                        cout << "Loading files to memory... ";
+
+                    if (xmlIndex >= xmlFiles.size() || csvIndex >= csvFiles.size()) {
+                        (pottyMouth) ?
+                            cout << "nice try, asshole.\n"
+                                 << "you typed an index out of range. try again, cunt.\n\n" :
+                            cout << "error!\n"
+                                 << "You typed an index out of range. Please try again.\n\n";
+                        continue;
+                    }
+                    else {
+                        inputTree = xmlFiles.at(xmlIndex);
+                        inputSS = csvFiles.at(csvIndex);
+                    }
+
+                    xmlLoaded = isLoaded(inputFolder + inputTree);
+                    csvLoaded = isLoaded(inputFolder + inputSS);
+
+                    if (xmlLoaded && csvLoaded) { cout << "done.\n\n"; loaded = true; }
+                    else {
+                        cout << "failed.\n"
+                             << "-> Dendrogram tree (.xml): ";
+                        (xmlLoaded) ?
+                            cout << "loaded.\n" :
+                            cout << "failed.\n";
+                        cout << "-> Metadata spreadsheet (.csv): ";
+                        (csvLoaded) ?
+                            cout << "loaded.\n" :
+                            cout << "failed.\n";
+
+                        (pottyMouth) ?
+                            cout << "would your stupidness like to change folders? (Y/N)\n" :
+                            cout << "Would you like to change the folder? (Y/N)\n";
+                        if (YN()) break;
+                    }
+                }
+            }
+            else { firstTry = false; continue; }
+        }
+    }
 }

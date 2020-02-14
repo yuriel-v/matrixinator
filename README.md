@@ -1,4 +1,4 @@
-# The Matrixinator v1.0 RC1 (beta)
+# The Matrixinator v1.0
 The Matrixinator is a small utility I made for my lab assistant Joshu.
 
 He once asked me about an application that could help him predict 8 values,

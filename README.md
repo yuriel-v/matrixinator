@@ -17,7 +17,7 @@ Future plans include:
 - [x] Provide basic initialization file support (typing directories is annoying);
 - [x] Migrate to CMake and enable use of Boost libraries;
 - [x] An automatic way of finding .xml and .csv files for use (through <filesystem> from C++ 17 standard library);
-- [x] Made it a sensitive program that does not like to be called names or told off. It'll turn highly offensive so don't do it!
+- [x] Made it a sensitive program that does not like to be called names or told off. It'll turn highly offensive so don't do it!;
 - [ ] Getting started on the Python version of this, kindly nicknamed "The Pythrixinator";
 - [ ] A prettier UI in a far, remote future.
 

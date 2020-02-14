@@ -16,7 +16,7 @@
 #include <iostream>
 #include <cstddef>
 #include <cmath>
-//#include <string>
+#include <string>
 //#include <set>
 //#include <vector>
 //#include <filesystem>
@@ -53,49 +53,49 @@ void Tree::readSelf(std::string filePath, int line)
 // SSheet
 
 void SSheet::readSelf(std::string filePath, int line) {
-    std::fstream sprSheet (filePath, std::fstream::in);
+    std::wfstream sprSheet (filePath, std::wfstream::in);
 
-    for (int i = 0; i <= line; ++i)
+    for (int i = 0; i <= line; ++i) {
         sprSheet.ignore(2048, '\n');
+    }
     sprSheet.precision(14);
 
-    std::getline(sprSheet, Key, ',');
-    std::getline(sprSheet, Location, ',');
-    std::getline(sprSheet, CollectionDate, ',');
-    std::getline(sprSheet, Company, ',');
-    std::getline(sprSheet, FSGID, ',');
-    std::getline(sprSheet, Farm, ',');
-    std::getline(sprSheet, Age_days, ',');
-    std::getline(sprSheet, SampleOrigin, ',');
-    std::getline(sprSheet, SampleType, ',');
-    std::getline(sprSheet, VMP, ',');
-    std::getline(sprSheet, ibeA, ',');
-    std::getline(sprSheet, traT, ',');
-    std::getline(sprSheet, iutA, ',');
-    std::getline(sprSheet, ompT, ',');
-    std::getline(sprSheet, sitA, ',');
-    std::getline(sprSheet, irp2, ',');
-    std::getline(sprSheet, cvaC, ',');
-    std::getline(sprSheet, tsh, ',');
-    std::getline(sprSheet, iucC, ',');
-    std::getline(sprSheet, iss, ',');
+    //I HATE WIDE STRINGS
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Key, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Location, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, CollectionDate, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Company, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, FSGID, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Farm, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, Age_days, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, SampleOrigin, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, SampleType, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, VMP, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, ibeA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, traT, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iutA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, ompT, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, sitA, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, irp2, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, cvaC, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, tsh, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iucC, ',');
+    std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, iss, ',');
 
-    // get octagon values from US samples only
-    if (Location == "US" || Location == "USA") {
-        std::string buffer;
-        for (int j = 0; j < 8; ++j) {
-            std::getline(sprSheet, buffer, ',');
-            std::stringstream(buffer) >> octagon[j];
-        }
+    std::wstring buffer;
+    for (int j = 0; j < 8; ++j) {
+        std::getline<wchar_t, std::char_traits<wchar_t>, std::allocator<wchar_t>>(sprSheet, buffer, ',');
+        std::wstringstream(buffer) >> octagon[j];
     }
     sprSheet.close();
+
 }
 
-void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
-    std::fstream output;
+void SSheet::writeSelf(std::string filePath, bool truncate, bool title, bool dS) {
+    std::wfstream output;
     (truncate)?
-        output.open(filePath, std::fstream::out | std::fstream::trunc):
-        output.open(filePath, std::fstream::out | std::fstream::app);
+        output.open(filePath, std::wfstream::out | std::wfstream::trunc):
+        output.open(filePath, std::wfstream::out | std::wfstream::app);
     output.precision(14);
 
     if (!output.is_open()) {
@@ -103,8 +103,13 @@ void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
         return;
     }
 
-    if (title) output<<"Key,Location,CollectionDate,Company,FSGID,Farm,Age_days,SampleOrigin,SampleType,VMP,ibeA,traT,iutA,ompT,sitA,irp2,cvaC,tsh,iucC,iss"
-                  <<",BS22,BS15,BS3,BS8,BS27,BS84,BS18,BS278,\n";
+    if (title) {
+        output << "Key,Location,CollectionDate,Company,FSGID,Farm,Age_days,SampleOrigin,SampleType,VMP,ibeA,traT,iutA,ompT,sitA,irp2,cvaC,tsh,iucC,iss"
+            << ",BS22,BS15,BS3,BS8,BS27,BS84,BS18,BS278,";
+        if (dS)
+            output << "USAMatches:Similarity,\n";
+        else output << "\n";
+    }
     else {
         output << Key <<","
                << Location <<","
@@ -129,12 +134,18 @@ void SSheet::writeSelf(std::string filePath, bool truncate, bool title) {
 
 
         for (int j = 0; j < 8; ++j) {
-            (isnan(octagon[j])) ?
+            (isnan(octagon[j]) || octagon[j] == -1) ?
                 output << "," :
                 output << "," << octagon[j];
         }
-
-        output << ",\n";
+        if (dS) {
+            output << ",";
+            for (auto& pr : usaMatches) {
+                output << pr.first << ":" << pr.second << " ";
+            }
+        }
+        if (!dS) output << ",";
+        output << '\n';
     }
     output.close();
 }
@@ -171,7 +182,7 @@ void Fmtx::UI()
         }
         else {
             (pottyMouth) ?
-                cout << "you're a nigger, giving me more work to do. let's do it the hard way then.\n" :
+                cout << "you're a cunt, giving me more work to do. let's do it the hard way then.\n" :
                 cout << "Understood. Commencing manual load.\n";
             readFiles(true);
         }
@@ -354,14 +365,24 @@ void Fmtx::sweep()
         }
 
         int caseCount = 0; vector<int> matches;
-        for (vector<int>::const_iterator it = USAlist.begin(); it != USAlist.end(); ++it)
-            if (bullSim(SS[foreign].node, SS[*it].node) >= 80) {
+        for (vector<int>::const_iterator it = USAlist.begin(); it != USAlist.end(); ++it) {
+            double sim = bullSim(SS[foreign].node, SS[*it].node);
+            if (sim >= 80) {
                 ++caseCount;
                 matches.push_back(*it);
+                if (detailedSweep)
+                    SS[foreign].usaMatches.push_back(make_pair(SS[*it].Key, sim));
             }
+        }
 
         switch (caseCount) {
-            // case 0, do nothing 
+        case 0:
+            if (detailedSweep) {
+                SS[foreign].usaMatches.push_back(make_pair(to_wstring(0), 0));
+            }
+            for (auto& val : SS[foreign].octagon)
+                val = -1;
+            break;
         case 1:
             for (int i = 0; i < 8; ++i)
                 SS[foreign].octagon[i] = SS[matches[0]].octagon[i];
@@ -410,10 +431,38 @@ void Fmtx::output()
     (pottyMouth) ?
         std::cout << "time to wrap this shit up, at last... " :
         std::cout << "Writing output spreadsheet... ";
-    SS[0].writeSelf(outputSS, true, true); // title first, content later
+    SS[0].writeSelf(outputSS, true, true, detailedSweep); // title first, content later
     for (int i = 0; i < numSamples; ++i)
-        SS[i].writeSelf(outputSS, false, false);
+        SS[i].writeSelf(outputSS, false, false, detailedSweep);
     std::cout << "done.\n=====\n";
+}
+
+void Fmtx::prelude() {
+    using namespace std;
+    string* input = new string;
+
+    cout << "The Matrixinator v0.7"; nline();
+    cout << "Hello and welcome to the matrixinator! Do you have something to tell me?\n>> ";
+    getline(cin, *input);
+    if (*input == "fuck you") {
+        cout << "well fuck you too then, faggot ass cunt. time to stop playing nice.";
+        pottyMouth = true;
+    }
+    else if (*input == "detailed") {
+        cout << "Understood. Detailed sweeping mode enabled.\n"
+            << "The USA sample matches will appear on the last row of each sample as key:similarity.";
+        detailedSweep = true;
+    }
+    else if (*input == "detailed, motherfucker") {
+        cout << "what the fuck did you motherfuckin' call me, motherfucker?\n"
+            << "i'll be motherfuckin' detailed in this motherfuckin' program alright, but not before i\n"
+            << "motherfuckin' call you a bitch ass faggot motherfucker yourself, motherfucker!";
+        detailedSweep = true;
+        pottyMouth = true;
+    }
+    else
+        cout << "Sorry, I didn't quite get that. Well, moving on with the program!";
+    delete input;
 }
 
 // private:
@@ -430,22 +479,21 @@ void Fmtx::bulldozer(int node)
 {
     if (!acacia[node].isSample) return;
 
-    std::vector<int> changeList;
+    std::vector<int> changeList; changeList.clear();
     int parent = acacia[node].parentID;
 
     while (acacia[parent].ID >= 1) {
-        changeList.clear();
         changeList.push_back(acacia[node].ID);
         node = parent;
         parent = acacia[parent].parentID;
 
         // add the change list to the parent's list
-        for (std::vector<int>::const_iterator it = changeList.begin(); it != changeList.end(); ++it)
-            (acacia[node].list).insert(*it);
+        for (auto& it : changeList)
+            acacia[node].list.insert(it);
     }
     // we're at node 1 at this point, parent ID 0
-    for (std::vector<int>::const_iterator it = changeList.begin(); it != changeList.end(); ++it)
-        (acacia[node].list).insert(*it);
+    for (auto& it : changeList)
+        acacia[node].list.insert(it);
 }
 
 // compare node's similarity to compID
@@ -459,9 +507,10 @@ double Fmtx::bullSim(int node, int compID) {
         if (acacia[node].similarity < 80)
             return 0;
 
-        for (std::set<int>::const_iterator it = (acacia[parent].list).begin(); it != (acacia[parent].list).end(); ++it)
-            if (*it == compID)
+        for (auto& it : acacia[parent].list) {
+            if (it == compID)
                 return acacia[parent].similarity;
+        }
 
         node = parent;
         parent = acacia[parent].parentID;
@@ -539,7 +588,7 @@ void Fmtx::readFiles(bool manual)
         }
         catch (...) {
             (pottyMouth) ?
-                cout << "you fucking nigger, i can't access that folder, if it even exists!\n" :
+                cout << "you fucking retard, i can't access that folder, if it even exists!\n" :
                 cout << "Exception thrown: the folder provided doesn't exist or is otherwise inaccessible!\n";
             firstTry = false; continue;
         }
@@ -600,13 +649,15 @@ void Fmtx::readFiles(bool manual)
                     inputTree.clear(); inputSS.clear();
 
                     (pottyMouth) ?
-                        cout << "where the dendrogram (.xml) at?\n>> " :
-                        cout << "Please type the index of the dendrogram tree (.xml) file.\n>> ";
-                    cin >> xmlIndex; inflush();
-                    (pottyMouth) ?
                         cout << "where the metadata (.csv) at?\n>> " :
                         cout << "Please type the index of the metadata spreadsheet (.csv) file.\n>> ";
                     cin >> csvIndex; inflush();
+
+                    (pottyMouth) ?
+                        cout << "where the dendrogram (.xml) at?\n>> " :
+                        cout << "Please type the index of the dendrogram tree (.xml) file.\n>> ";
+                    cin >> xmlIndex; inflush();
+
                     (pottyMouth) ?
                         cout << "ok let's see then... " :
                         cout << "Loading files to memory... ";

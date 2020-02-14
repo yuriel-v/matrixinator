@@ -36,3 +36,5 @@ matrixinator/matrixinator.vcxproj.user
 *.pdb
 
 *.ilk
+
+*.ini

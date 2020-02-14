@@ -33,6 +33,7 @@
 #include <vector>
 #include <set>
 #include <filesystem>
+#include <utility>
 
 class Fmtx;
 class Tree;
@@ -70,11 +71,16 @@ class Fmtx {
 
 public:
     bool pottyMouth = false; //for LAUGHERS
+    bool detailedSweep = false;
     void nline();
+
+    //prelude
+    void prelude();
 
     //main sequence
     void UI();
     void outputOptions();
+
     void readSelves();
     void postInit();
     void sweep();
@@ -85,12 +91,13 @@ public:
 class SSheet {
     double octagon[8];
     int node; //node-sample association
+    std::vector<std::pair<std::wstring, double>> usaMatches;
 
-    std::string Key, Location, CollectionDate, Company, FSGID, Farm, Age_days, SampleOrigin,
+    std::wstring Key, Location, CollectionDate, Company, FSGID, Farm, Age_days, SampleOrigin,
     SampleType, VMP, ibeA, traT, iutA, ompT, sitA, irp2, cvaC, tsh, iucC, iss;
     //BS22, BS15, BS3, BS8, BS27, BS84, BS18, BS278 = octagon values (for title purposes)
 
-    void writeSelf(std::string, bool, bool);
+    void writeSelf(std::string, bool, bool, bool);
     void readSelf(std::string, int);
 
     friend class Fmtx;

@@ -20,29 +20,17 @@
 
 #include "utils.hpp"
 #include "mtx.hpp"
-
 #include <iostream>
-#include <string>
-#include <vector>
 
 int main(int argc, char* argv[])
 {
-    using namespace std;
     Fmtx mtx;
-    string* input = new string;
 
-    cout << "The Matrixinator v0.7"; mtx.nline();
-    cout << "Hello and welcome to the matrixinator! Do you have something to tell me?\n>> ";
-    getline(cin, *input);
-    if (*input == "fuck you") {
-        cout << "well fuck you too then, faggot ass nigger. time to stop playing nice.";
-        mtx.pottyMouth = true;
-    }
-    else
-        cout << "Sorry, I didn't quite get that. Well, moving on with the program!";
-    mtx.nline(); delete input;
+    //prelude
+    mtx.prelude();
 
     //input
+    mtx.nline();
     mtx.UI();
     mtx.outputOptions();
 
@@ -57,8 +45,8 @@ int main(int argc, char* argv[])
     mtx.output();
 
     (mtx.pottyMouth) ?
-        cout << "see ya, nigger." :
-        cout << "Terminating program execution.";
+        std::cout << "see ya, bitch." :
+        std::cout << "Terminating program execution.";
 
     sysexit(0);
 }
